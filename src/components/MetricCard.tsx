@@ -15,9 +15,10 @@ interface MetricCardProps {
   isMock?: boolean;
   sparklineData?: any[];
   index: number;
+  darkMode?: boolean;
 }
 
-export const MetricCard: React.FC<MetricCardProps> = ({ title, value, variation, isPositive, icon: Icon, isMock, sparklineData, index }) => {
+export const MetricCard: React.FC<MetricCardProps> = ({ title, value, variation, isPositive, icon: Icon, isMock, sparklineData, index, darkMode = true }) => {
   const shouldReduceMotion = useReducedMotion();
   const mouseX = useMotionValue(0);
   const mouseY = useMotionValue(0);
@@ -30,7 +31,7 @@ export const MetricCard: React.FC<MetricCardProps> = ({ title, value, variation,
 
   return (
     <motion.div 
-      className="bg-[#121212] border border-[#262626] p-3 sm:p-6 rounded-[12px] relative overflow-hidden group"
+      className={cn("border p-3 sm:p-6 rounded-[12px] relative overflow-hidden group transition-colors duration-300", darkMode ? "bg-[#121212] border-[#262626]" : "bg-white border-gray-200 shadow-sm")}
       initial={{ opacity: 0, y: 30, scale: 0.96 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       transition={{ delay: index * 0.08, duration: 0.6, type: 'spring', damping: 18 }}
@@ -50,7 +51,7 @@ export const MetricCard: React.FC<MetricCardProps> = ({ title, value, variation,
           whileHover={!shouldReduceMotion ? { scale: 1.15, rotate: 5 } : {}}
           transition={{ type: 'spring', stiffness: 300, damping: 20 }}
         >
-          <Icon className="w-16 h-16 sm:w-24 sm:h-24 text-white" />
+          <Icon className={cn("w-16 h-16 sm:w-24 sm:h-24", darkMode ? "text-white" : "text-gray-900")} />
         </motion.div>
       </div>
 
@@ -61,9 +62,9 @@ export const MetricCard: React.FC<MetricCardProps> = ({ title, value, variation,
         >
           <Icon className="w-3 h-3 sm:w-5 sm:h-5 text-white" />
         </motion.div>
-        <h3 className="text-gray-400 text-[9px] sm:text-xs font-bold uppercase tracking-wider">{title}</h3>
+        <h3 className={cn("text-[9px] sm:text-xs font-bold uppercase tracking-wider", darkMode ? "text-gray-400" : "text-gray-500")}>{title}</h3>
       </div>
-      <div className="text-xl sm:text-3xl font-bold text-white mb-1 relative z-10">{value}</div>
+      <div className={cn("text-xl sm:text-3xl font-bold mb-1 relative z-10", darkMode ? "text-white" : "text-gray-900")}>{value}</div>
       <div className="flex items-center text-sm relative z-10">
         {variation ? (
           <motion.span 
@@ -76,7 +77,7 @@ export const MetricCard: React.FC<MetricCardProps> = ({ title, value, variation,
         ) : (
           <span className="text-gray-500">—</span>
         )}
-        {isMock && <span className="ml-2 text-[10px] bg-gray-800 text-gray-400 px-1 rounded">dados de exemplo</span>}
+        {isMock && <span className={cn("ml-2 text-[10px] px-1 rounded", darkMode ? "bg-gray-800 text-gray-400" : "bg-gray-100 text-gray-600")}>dados de exemplo</span>}
       </div>
       {sparklineData && sparklineData.length >= 2 && (
         <div className="absolute bottom-2 right-2 w-[70px] h-[28px] z-10">

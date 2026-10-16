@@ -7,14 +7,14 @@ import { motion, useReducedMotion } from 'framer-motion';
 interface TopReelsProps {
   posts: InstagramPost[];
   period: string;
+  darkMode?: boolean;
 }
 
 const AnimatedNumber = ({ value, format = 'number' }: { value: number, format?: 'number' | 'percent' }) => {
-    // This is a simplified version; for full animation a library like framer-motion's useMotionValue + useTransform is needed
     return <span>{format === 'percent' ? value.toFixed(2).replace('.', ',') + '%' : value.toLocaleString('pt-BR')}</span>;
 };
 
-export const TopReels: React.FC<TopReelsProps> = ({ posts, period }) => {
+export const TopReels: React.FC<TopReelsProps> = ({ posts, period, darkMode = true }) => {
   const shouldReduceMotion = useReducedMotion();
   const topReels = useMemo(() => {
     return [...posts]
@@ -39,7 +39,7 @@ export const TopReels: React.FC<TopReelsProps> = ({ posts, period }) => {
     <div className="mb-10">
       <span className="text-[#E1306C] text-xs font-bold tracking-[0.2em]">RANKING</span>
       <div className="flex flex-col sm:flex-row justify-between sm:items-end gap-2 mb-6">
-          <h2 className="text-2xl font-bold text-white">Top Reels por taxa de engajamento</h2>
+          <h2 className={cn("text-2xl font-bold", darkMode ? "text-white" : "text-gray-900")}>Top Reels por taxa de engajamento</h2>
           <span className="text-xs text-gray-500">Engajamento total ÷ alcance · {period}</span>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -53,7 +53,7 @@ export const TopReels: React.FC<TopReelsProps> = ({ posts, period }) => {
                     href={post.post} 
                     target="_blank" 
                     rel="noreferrer" 
-                    className={cn("bg-[#121212] p-4 rounded-[12px] border border-solid block group", styles.border, styles.shadow)}
+                    className={cn("p-4 rounded-[12px] border border-solid block group transition-colors duration-300", darkMode ? "bg-[#121212]" : "bg-white shadow-sm", styles.border, styles.shadow)}
                     initial={{ opacity: 0, y: 40, scale: 0.95 }}
                     animate={{ opacity: 1, y: 0, scale: 1 }}
                     transition={{ delay: index * 0.15, duration: 0.6, type: 'spring', damping: 18 }}
@@ -74,10 +74,10 @@ export const TopReels: React.FC<TopReelsProps> = ({ posts, period }) => {
                             <ReelThumb url={post.post} width="48px" height="85px" />
                         </div>
                         <div className="grid grid-cols-2 gap-x-2 gap-y-1 flex-1">
-                            <div><div className="text-[8px] text-gray-400 uppercase">Alcance</div><div className="font-bold text-white text-xs"><AnimatedNumber value={post.alcance} /></div></div>
-                            <div><div className="text-[8px] text-gray-400 uppercase">Curtidas</div><div className="font-bold text-white text-xs"><AnimatedNumber value={post.likes} /></div></div>
-                            <div><div className="text-[8px] text-gray-400 uppercase">Coment.</div><div className="font-bold text-white text-xs"><AnimatedNumber value={post.comentarios} /></div></div>
-                            <div><div className="text-[8px] text-gray-400 uppercase">Compart.</div><div className="font-bold text-white text-xs"><AnimatedNumber value={post.compartilhamento} /></div></div>
+                            <div><div className="text-[8px] text-gray-400 uppercase">Alcance</div><div className={cn("font-bold text-xs", darkMode ? "text-white" : "text-gray-900")}><AnimatedNumber value={post.alcance} /></div></div>
+                            <div><div className="text-[8px] text-gray-400 uppercase">Curtidas</div><div className={cn("font-bold text-xs", darkMode ? "text-white" : "text-gray-900")}><AnimatedNumber value={post.likes} /></div></div>
+                            <div><div className="text-[8px] text-gray-400 uppercase">Coment.</div><div className={cn("font-bold text-xs", darkMode ? "text-white" : "text-gray-900")}><AnimatedNumber value={post.comentarios} /></div></div>
+                            <div><div className="text-[8px] text-gray-400 uppercase">Compart.</div><div className={cn("font-bold text-xs", darkMode ? "text-white" : "text-gray-900")}><AnimatedNumber value={post.compartilhamento} /></div></div>
                         </div>
                     </div>
                     <div className="h-1 w-full bg-[#262626] rounded-full overflow-hidden">
