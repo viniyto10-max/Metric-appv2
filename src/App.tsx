@@ -182,7 +182,7 @@ export default function App() {
   }
 
   return (
-    <div className={cn("min-h-screen font-sans overflow-x-hidden transition-colors duration-300", darkMode ? "bg-[#0A0A0A] text-gray-200" : "bg-[#F4F5F7] text-gray-900")}>
+    <div className={cn("min-h-screen font-sans transition-colors duration-300", darkMode ? "bg-[#0A0A0A] text-gray-200" : "bg-[#F4F5F7] text-gray-900")}>
       {/* Collapsible Left Sidebar */}
       <Sidebar 
         activeTab={activeTab}

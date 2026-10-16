@@ -100,7 +100,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             ? "bg-[#0D0D0D] border-[#222222] text-gray-200" 
             : "bg-white border-gray-200 text-gray-800 shadow-xl lg:shadow-none",
           // Mobile responsive placement
-          mobileOpen ? "translate-x-0 w-64" : "-translate-x-full lg:translate-x-0",
+          mobileOpen ? "translate-x-0 w-64 pointer-events-auto" : "-translate-x-full w-64 pointer-events-none lg:pointer-events-auto lg:translate-x-0",
           // Desktop width: 64px when compact/collapsed, 240px when expanded
           collapsed ? "lg:w-16" : "lg:w-60"
         )}

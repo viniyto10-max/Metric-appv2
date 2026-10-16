@@ -16,25 +16,28 @@ export const CoverLightbox: React.FC<CoverLightboxProps> = ({ isOpen, imgSrc, po
   const previousActiveElement = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
-    if (isOpen) {
-      previousActiveElement.current = document.activeElement as HTMLElement;
-      document.body.style.overflow = 'hidden';
-      setTimeout(() => {
-        closeBtnRef.current?.focus();
-      }, 50);
-
-      const handleKeyDown = (e: KeyboardEvent) => {
-        if (e.key === 'Escape') {
-          onClose();
-        }
-      };
-      window.addEventListener('keydown', handleKeyDown);
-      return () => {
-        window.removeEventListener('keydown', handleKeyDown);
-        document.body.style.overflow = '';
-        previousActiveElement.current?.focus();
-      };
+    if (!isOpen) {
+      document.body.style.overflow = '';
+      return;
     }
+
+    previousActiveElement.current = document.activeElement as HTMLElement;
+    document.body.style.overflow = 'hidden';
+    setTimeout(() => {
+      closeBtnRef.current?.focus();
+    }, 50);
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      document.body.style.overflow = '';
+      previousActiveElement.current?.focus();
+    };
   }, [isOpen, onClose]);
 
   if (!isOpen || !imgSrc) return null;
