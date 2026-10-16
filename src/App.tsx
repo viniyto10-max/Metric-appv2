@@ -1,0 +1,427 @@
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { SHEET_CSV_URL } from './constants';
+import { parseCSVData, InstagramPost, getPostType } from './utils/dataParser';
+import { calculateComparisonDateRanges, isDateInRange } from './utils/dateRanges';
+import { MetricCard, MOCK_CLIQUES_LINK_BIO } from './components/MetricCard';
+import { DataTable } from './components/DataTable';
+import { TopReels } from './components/TopReels';
+import { InsightsSection } from './components/InsightsSection';
+import { Sidebar } from './components/Sidebar';
+import { ReportPage } from './components/ReportPage';
+import { useFollowersDelta } from './hooks/useFollowersDelta';
+import { FollowersDelta } from './components/FollowersDelta';
+import { cn } from './lib/utils';
+import { motion, AnimatePresence } from 'framer-motion';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts';
+import { 
+  BarChart3, 
+  Users, 
+  Heart, 
+  MessageCircle, 
+  Share2, 
+  TrendingUp, 
+  RefreshCw, 
+  Percent, 
+  Grid3X3, 
+  MousePointerClick, 
+  Sun, 
+  Moon,
+  Menu,
+  FileText,
+  LayoutDashboard
+} from 'lucide-react';
+
+export default function App() {
+  const [data, setData] = useState<InstagramPost[]>([]);
+  const [seguidores, setSeguidores] = useState<number>(0);
+  const [seguindo, setSeguindo] = useState<number>(0);
+  const [isNetworkData, setIsNetworkData] = useState<number | boolean>(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [darkMode, setDarkMode] = useState<boolean>(true);
+
+  // Hook to track followers delta, history in localStorage and states
+  const followersDelta = useFollowersDelta(seguidores, isNetworkData);
+
+  // Navigation State
+  const [activeTab, setActiveTab] = useState<'overview' | 'report'>('overview');
+  const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(true);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState<boolean>(false);
+
+  // Overview Filters
+  const [period, setPeriod] = useState<'7' | '30' | '90' | 'ano' | 'tudo' | 'custom'>('tudo');
+  const [customStart, setCustomStart] = useState<string>('');
+  const [customEnd, setCustomEnd] = useState<string>('');
+  const [postTypeFilter, setPostTypeFilter] = useState<'all' | 'video' | 'carrossel' | 'card_unico'>('all');
+  const [currentPage, setCurrentPage] = useState<number>(1);
+
+  const filteredData = useMemo(() => {
+    const range = calculateComparisonDateRanges(period, customStart, customEnd).current;
+    let filtered = data.filter(post => isDateInRange(post.data, range));
+
+    if (postTypeFilter !== 'all') {
+      filtered = filtered.filter(post => getPostType(post) === postTypeFilter);
+    }
+
+    // Grouping for charts
+    const grouped = filtered.reduce((acc, curr) => {
+        const dateKey = curr.data.toDateString();
+        if (!acc[dateKey]) {
+            acc[dateKey] = { date: curr.data, alcance: 0, engajamentoTotal: 0, engajamentos: [] };
+        }
+        acc[dateKey].alcance += curr.alcance;
+        acc[dateKey].engajamentoTotal += curr.engajamentoTotal;
+        acc[dateKey].engajamentos.push(curr.realEngajamento);
+        return acc;
+    }, {} as Record<string, any>);
+
+    const chartData = Object.values(grouped).map(g => ({
+        data: g.date,
+        alcance: g.alcance,
+        engajamentoTotal: g.engajamentos.reduce((a: number, b: number) => a + b, 0) / (g.engajamentos.length || 1)
+    })).sort((a, b) => a.data.getTime() - b.data.getTime());
+
+    return { filtered, chartData };
+  }, [data, period, customStart, customEnd, postTypeFilter]);
+
+  const { filtered, chartData } = filteredData;
+  const kpis = {
+    alcance: filtered.reduce((acc, curr) => acc + curr.alcance, 0),
+    likes: filtered.reduce((acc, curr) => acc + curr.likes, 0),
+    compartilhamento: filtered.reduce((acc, curr) => acc + curr.compartilhamento, 0),
+    engajamento: (filtered.reduce((acc, curr) => acc + curr.alcance, 0) > 0) 
+        ? (filtered.reduce((acc, curr) => acc + curr.engajamentoTotal, 0) / filtered.reduce((acc, curr) => acc + curr.alcance, 0)) * 100 
+        : 0,
+    engajamentoTotal: filtered.reduce((acc, curr) => acc + curr.engajamentoTotal, 0),
+    comentarios: filtered.reduce((acc, curr) => acc + curr.comentarios, 0),
+    posts: filtered.length,
+  };
+
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await fetch(SHEET_CSV_URL);
+      if (!response.ok) throw new Error('Falha ao buscar dados');
+      const csvText = await response.text();
+      const parsed = parseCSVData(csvText);
+      setData(parsed.posts);
+      setSeguidores(parsed.seguidores);
+      setSeguindo(parsed.seguindo);
+      setLastUpdated(new Date());
+      setIsNetworkData(Date.now());
+    } catch (err) {
+      setError('Erro ao carregar dados. Verifique a URL do CSV.');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  if (loading) {
+    return (
+      <div className={cn("h-screen flex flex-col items-center justify-center gap-3", darkMode ? "bg-[#0A0A0A] text-white" : "bg-[#F3F4F6] text-gray-900")}>
+        <div className="w-8 h-8 border-3 border-[#DD2A7B] border-t-transparent rounded-full animate-spin"></div>
+        <p className="text-xs font-medium">Carregando dados do Instagram...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className={cn("h-screen flex flex-col items-center justify-center p-6 text-center", darkMode ? "bg-[#0A0A0A] text-white" : "bg-[#F3F4F6] text-gray-900")}>
+        <div className="p-4 rounded-xl bg-red-950/40 border border-red-900 text-red-400 max-w-md">
+          <p className="font-semibold mb-2">{error}</p>
+          <button 
+            onClick={fetchData} 
+            className="mt-2 px-4 py-1.5 rounded-lg bg-red-600 hover:bg-red-500 text-white text-xs font-bold transition"
+          >
+            Tentar Novamente
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className={cn("min-h-screen font-sans overflow-x-hidden transition-colors duration-300", darkMode ? "bg-[#0A0A0A] text-gray-200" : "bg-[#F4F5F7] text-gray-900")}>
+      {/* Collapsible Left Sidebar */}
+      <Sidebar 
+        activeTab={activeTab}
+        onSelectTab={setActiveTab}
+        darkMode={darkMode}
+        setDarkMode={setDarkMode}
+        collapsed={sidebarCollapsed}
+        onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
+        mobileOpen={mobileSidebarOpen}
+        onCloseMobile={() => setMobileSidebarOpen(false)}
+        seguidores={seguidores}
+        seguindo={seguindo}
+      />
+
+      {/* Main Content Area */}
+      <div className={cn(
+        "transition-all duration-300 flex flex-col min-h-screen",
+        sidebarCollapsed ? "lg:pl-16" : "lg:pl-60"
+      )}>
+        {/* Fixed Top Navigation Bar */}
+        <header className={cn(
+          "fixed top-0 right-0 z-40 flex items-center justify-between px-4 sm:px-8 h-14 sm:h-16 border-b backdrop-blur-md transition-all duration-300 no-print",
+          sidebarCollapsed ? "left-0 lg:left-16" : "left-0 lg:left-60",
+          darkMode ? "bg-[#0A0A0A]/95 border-[#222222] shadow-sm shadow-black/30" : "bg-white/95 border-gray-200 shadow-xs"
+        )}>
+          <div className="flex items-center gap-3">
+            {/* Hamburger Button (Mobile) */}
+            <button
+              onClick={() => setMobileSidebarOpen(true)}
+              className={cn(
+                "p-2 rounded-xl border transition-colors lg:hidden",
+                darkMode ? "border-[#262626] bg-[#141414] text-gray-300 hover:text-white" : "border-gray-200 bg-gray-100 text-gray-700"
+              )}
+              aria-label="Abrir menu lateral"
+            >
+              <Menu size={18} />
+            </button>
+
+            {/* Breadcrumb / Title Indicator */}
+            <div className="flex items-center gap-2">
+              <span className={cn("text-xs font-semibold uppercase tracking-wider hidden sm:inline", darkMode ? "text-gray-500" : "text-gray-400")}>
+                Analytics
+              </span>
+              <span className={cn("text-xs hidden sm:inline", darkMode ? "text-gray-700" : "text-gray-300")}>/</span>
+              <span className={cn("text-sm sm:text-base font-bold flex items-center gap-1.5", darkMode ? "text-white" : "text-gray-900")}>
+                {activeTab === 'overview' ? (
+                  <>
+                    <LayoutDashboard size={15} className="text-[#DD2A7B]" /> Visão Geral
+                  </>
+                ) : (
+                  <>
+                    <FileText size={15} className="text-[#8134AF]" /> Gerar Relatório
+                  </>
+                )}
+              </span>
+            </div>
+          </div>
+
+          {/* Quick Header Actions */}
+          <div className="flex items-center gap-2">
+            <button 
+              onClick={fetchData} 
+              className={cn(
+                "flex items-center gap-1.5 border px-3 py-1.5 rounded-xl transition text-xs font-medium shadow-xs", 
+                darkMode ? "bg-[#141414] border-[#262626] text-white hover:bg-gray-800" : "bg-white border-gray-200 text-gray-700 hover:bg-gray-100"
+              )}
+              title="Atualizar dados da planilha"
+            >
+              <RefreshCw size={13} className={cn(loading && "animate-spin")} /> 
+              <span className="hidden sm:inline">Atualizar</span>
+            </button>
+
+            <button 
+              onClick={() => setDarkMode(!darkMode)}
+              aria-label="Alternar modo claro e escuro"
+              className={cn(
+                "flex items-center justify-center w-8 h-8 rounded-xl border transition shadow-xs", 
+                darkMode ? "bg-[#141414] border-[#262626] text-amber-400 hover:bg-gray-800" : "bg-white border-gray-200 text-indigo-600 hover:bg-gray-100"
+              )}
+              title={darkMode ? "Mudar para Modo Claro" : "Mudar para Modo Escuro"}
+            >
+              {darkMode ? <Sun size={15} /> : <Moon size={15} />}
+            </button>
+          </div>
+        </header>
+
+        {/* Spacer to prevent content from jumping or being hidden beneath the fixed bar */}
+        <div className="h-14 sm:h-16 shrink-0 w-full no-print" aria-hidden="true" />
+
+        {/* Content Body */}
+        <main className="flex-1 p-4 sm:p-8">
+          <AnimatePresence mode="wait">
+            {activeTab === 'overview' ? (
+              <motion.div
+                key="overview-tab"
+                initial={{ opacity: 0, y: 15 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -15 }}
+                transition={{ duration: 0.25 }}
+              >
+                {/* Visão Geral Header / Followers / Controls */}
+                <header className="mb-6 sm:mb-8">
+                  <div className="flex flex-row justify-between items-center gap-2 sm:gap-4 mb-5 sm:mb-6">
+                    <h1 className={cn("text-lg sm:text-2xl font-bold truncate shrink-0", darkMode ? "text-white" : "text-gray-900")}>
+                      Visão Geral
+                    </h1>
+                    {seguidores > 0 && (
+                      <div className={cn(
+                        "flex items-center gap-2 sm:gap-3 border px-2 py-1.5 sm:px-3.5 sm:py-2 rounded-xl text-[11px] transition-colors shrink-0",
+                        darkMode ? "bg-[#121212] border-[#262626]" : "bg-white border-gray-200 shadow-sm"
+                      )}>
+                        <div className="flex flex-col text-left">
+                          <span className={cn("block uppercase font-semibold text-[9px] sm:text-[11px] tracking-wider leading-tight", darkMode ? "text-gray-400" : "text-gray-500")}>
+                            Seguidores
+                          </span>
+                          <FollowersDelta
+                            followers={seguidores}
+                            delta={followersDelta.delta}
+                            since={followersDelta.since}
+                            state={followersDelta.state}
+                            darkMode={darkMode}
+                          />
+                        </div>
+                        <div className={cn("self-stretch w-[1px] my-0.5 sm:my-1", darkMode ? "bg-[#262626]" : "bg-gray-200")}></div>
+                        <div className="flex flex-col justify-center text-center px-0.5 sm:px-1">
+                          <span className={cn("block uppercase font-semibold text-[9px] sm:text-[11px] tracking-wider leading-tight", darkMode ? "text-gray-400" : "text-gray-500")}>
+                            Seguindo
+                          </span>
+                          <span className={cn("font-bold text-xs sm:text-base leading-none mt-0.5 sm:mt-1", darkMode ? "text-white" : "text-gray-900")}>
+                            {seguindo.toLocaleString('pt-BR')}
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Period selection */}
+                  <div className="grid grid-cols-3 gap-2 mb-4">
+                    {[{label: '7d', val: '7'}, {label: '30d', val: '30'}, {label: '90d', val: '90'}, {label: 'Ano', val: 'ano'}, {label: 'Tudo', val: 'tudo'}, {label: 'Custom', val: 'custom'}].map((p) => (
+                      <button 
+                        key={p.val}
+                        onClick={() => { setPeriod(p.val as any); setCurrentPage(1); }}
+                        className={cn("px-2 py-1.5 rounded-lg transition text-[11px] truncate border", period === p.val ? "bg-gradient-to-br from-[#F58529] via-[#DD2A7B] to-[#8134AF] text-white border-transparent" : darkMode ? "bg-[#121212] border-[#262626] text-gray-400 hover:bg-gray-800" : "bg-white border-gray-200 text-gray-700 hover:bg-gray-50 shadow-sm")}
+                      >
+                        {p.label}
+                      </button>
+                    ))}
+                  </div>
+                  
+                  {period === 'custom' && (
+                    <div className={cn("flex gap-2 items-center p-2 rounded-lg border mb-4 transition-colors", darkMode ? "bg-[#121212] border-[#262626]" : "bg-white border-gray-200 shadow-sm")}>
+                      <input type="date" className={cn("bg-transparent text-[10px] flex-1", darkMode ? "text-white" : "text-gray-900")} value={customStart} onChange={(e) => setCustomStart(e.target.value)} />
+                      <span className="text-gray-500">até</span>
+                      <input type="date" className={cn("bg-transparent text-[10px] flex-1", darkMode ? "text-white" : "text-gray-900")} value={customEnd} onChange={(e) => setCustomEnd(e.target.value)} />
+                    </div>
+                  )}
+
+                  {/* Post type filters */}
+                  <div className="grid grid-cols-4 gap-1.5 items-center">
+                    {[
+                      { label: 'Todos', val: 'all' },
+                      { label: 'Vídeo', val: 'video' },
+                      { label: 'Carrossel', val: 'carrossel' },
+                      { label: 'Card', val: 'card_unico' },
+                    ].map(t => (
+                      <button
+                        key={t.val}
+                        onClick={() => { setPostTypeFilter(t.val as any); setCurrentPage(1); }}
+                        className={cn("py-1.5 rounded-md transition text-[10px] text-center border truncate font-medium", postTypeFilter === t.val ? "bg-[#E1306C] text-white border-transparent" : darkMode ? "bg-[#121212] border-[#262626] text-gray-400 hover:bg-gray-800" : "bg-white border-gray-200 text-gray-700 hover:bg-gray-50 shadow-sm")}
+                      >
+                        {t.label}
+                      </button>
+                    ))}
+                  </div>
+                </header>
+
+                {/* Top Reels Ranking */}
+                <TopReels posts={filtered} period={period === 'custom' ? `${customStart} até ${customEnd}` : { '7': '7 dias', '30': '30 dias', '90': '90 dias', 'ano': 'Este ano', 'tudo': 'Tudo'}[period]} darkMode={darkMode} />
+
+                {/* Metric KPI Cards */}
+                <motion.div 
+                  key={period}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.5 }}
+                  className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-6 mb-10"
+                >
+                  <MetricCard index={0} title="Alcance" value={kpis.alcance.toLocaleString('pt-BR')} variation={null} isPositive={null} icon={Users} sparklineData={chartData.map(c => ({value: c.alcance}))} darkMode={darkMode} />
+                  <MetricCard index={1} title="Curtidas" value={kpis.likes.toLocaleString('pt-BR')} variation={null} isPositive={null} icon={Heart} darkMode={darkMode} />
+                  <MetricCard index={2} title="Compartilhamentos" value={kpis.compartilhamento.toLocaleString('pt-BR')} variation={null} isPositive={null} icon={Share2} darkMode={darkMode} />
+                  <MetricCard index={3} title="Engajamento %" value={`${kpis.engajamento.toFixed(2).replace('.', ',')}%`} variation={null} isPositive={null} icon={Percent} sparklineData={chartData.map(c => ({value: c.engajamentoTotal}))} darkMode={darkMode} />
+                  <MetricCard index={4} title="Engajamento Total" value={kpis.engajamentoTotal.toLocaleString('pt-BR')} variation={null} isPositive={null} icon={Users} darkMode={darkMode} />
+                  <MetricCard index={5} title="Comentários" value={kpis.comentarios.toLocaleString('pt-BR')} variation={null} isPositive={null} icon={MessageCircle} darkMode={darkMode} />
+                  <MetricCard index={6} title="Posts no Período" value={kpis.posts.toLocaleString('pt-BR')} variation={null} isPositive={null} icon={Grid3X3} darkMode={darkMode} />
+                  <MetricCard index={7} title="Cliques Link Bio" value={MOCK_CLIQUES_LINK_BIO.toLocaleString('pt-BR')} variation={null} isPositive={null} icon={MousePointerClick} isMock={true} darkMode={darkMode} />
+                </motion.div>
+
+                {/* Charts Area */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-10">
+                  <div className={cn("p-4 rounded-[12px] border transition-colors duration-300", darkMode ? "bg-[#121212] border-[#262626]" : "bg-white border-gray-200 shadow-sm")}>
+                    <h3 className={cn("text-sm font-semibold mb-3", darkMode ? "text-gray-300" : "text-gray-800")}>Evolução do Alcance</h3>
+                    <div className="h-48">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <AreaChart data={chartData} margin={{ left: -20, right: 10 }}>
+                          <CartesianGrid strokeDasharray="3 3" stroke={darkMode ? "#374151" : "#E5E7EB"} />
+                          <XAxis dataKey="data" tickFormatter={(d) => d.toLocaleDateString('pt-BR', {day: 'numeric', month: 'numeric'})} stroke={darkMode ? "#9CA3AF" : "#4B5563"} tick={{fontSize: 10}} />
+                          <YAxis stroke={darkMode ? "#9CA3AF" : "#4B5563"} tick={{fontSize: 10}} />
+                          <Tooltip 
+                            contentStyle={{ backgroundColor: darkMode ? '#1F2937' : '#FFFFFF', borderColor: darkMode ? '#374151' : '#E5E7EB', borderRadius: '8px', fontSize: '12px', color: darkMode ? '#FFFFFF' : '#111827' }}
+                            labelFormatter={(label: any) => label instanceof Date ? label.toLocaleDateString('pt-BR') : String(label || '')}
+                            formatter={(value: any) => [Number(value || 0).toLocaleString('pt-BR'), 'Alcance']}
+                          />
+                          <Area type="monotone" dataKey="alcance" stroke="#EC4899" fill="#EC4899" fillOpacity={0.3} />
+                        </AreaChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+                  <div className={cn("p-4 rounded-[12px] border transition-colors duration-300", darkMode ? "bg-[#121212] border-[#262626]" : "bg-white border-gray-200 shadow-sm")}>
+                    <h3 className={cn("text-sm font-semibold mb-3", darkMode ? "text-gray-300" : "text-gray-800")}>Evolução do Engajamento</h3>
+                    <div className="h-48">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <LineChart data={chartData} margin={{ left: -20, right: 10 }}>
+                          <CartesianGrid strokeDasharray="3 3" stroke={darkMode ? "#374151" : "#E5E7EB"} />
+                          <XAxis dataKey="data" tickFormatter={(d) => d.toLocaleDateString('pt-BR', {day: 'numeric', month: 'numeric'})} stroke={darkMode ? "#9CA3AF" : "#4B5563"} tick={{fontSize: 10}} />
+                          <YAxis stroke={darkMode ? "#9CA3AF" : "#4B5563"} tick={{fontSize: 10}} />
+                          <Tooltip 
+                            contentStyle={{ backgroundColor: darkMode ? '#1F2937' : '#FFFFFF', borderColor: darkMode ? '#374151' : '#E5E7EB', borderRadius: '8px', fontSize: '12px', color: darkMode ? '#FFFFFF' : '#111827' }}
+                            labelFormatter={(label: any) => label instanceof Date ? label.toLocaleDateString('pt-BR') : String(label || '')}
+                            formatter={(value: any) => [Number(value || 0).toFixed(2).replace('.', ',') + '%', 'Engj. Médio']}
+                          />
+                          <Line type="monotone" dataKey="engajamentoTotal" stroke="#EC4899" strokeWidth={2} dot={false} />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Detailed Table */}
+                <p className={cn("text-xs mb-2", darkMode ? "text-gray-500" : "text-gray-600")}>{filtered.length} reels no período</p>
+                <motion.div
+                  key={`${period}-table`}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.5, delay: 0.2 }}
+                >
+                  <DataTable data={filtered} darkMode={darkMode} />
+                </motion.div>
+
+                {/* Automated Insights Section */}
+                <div className="mt-10">
+                  <InsightsSection posts={filtered} allPosts={data} period={period} customStart={customStart} customEnd={customEnd} darkMode={darkMode} />
+                </div>
+              </motion.div>
+            ) : (
+              <motion.div
+                key="report-tab"
+                initial={{ opacity: 0, y: 15 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -15 }}
+                transition={{ duration: 0.25 }}
+              >
+                {/* Gerar Relatório Dedicated Page */}
+                <ReportPage 
+                  posts={data}
+                  seguidores={seguidores}
+                  seguindo={seguindo}
+                  darkMode={darkMode}
+                />
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </main>
+      </div>
+    </div>
+  );
+}
