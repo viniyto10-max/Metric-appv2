@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { InstagramPost } from '../utils/dataParser';
+import { InstagramPost, parseInputDate } from '../utils/dataParser';
 import { ReelThumb } from './ReelThumb';
 import { cn } from '@/lib/utils';
 import { motion, useReducedMotion } from 'framer-motion';
@@ -14,10 +14,9 @@ interface InsightsSectionProps {
   period: string;
   customStart?: string;
   customEnd?: string;
-  darkMode?: boolean;
 }
 
-export const InsightsSection: React.FC<InsightsSectionProps> = ({ posts, allPosts, period, customStart, customEnd, darkMode = true }) => {
+export const InsightsSection: React.FC<InsightsSectionProps> = ({ posts, allPosts, period, customStart, customEnd }) => {
   const shouldReduceMotion = useReducedMotion();
 
   const prevPosts = useMemo(() => {
@@ -57,8 +56,9 @@ export const InsightsSection: React.FC<InsightsSectionProps> = ({ posts, allPost
       const pEnd = new Date(year - 1, 11, 31, 23, 59, 59);
       return allPosts.filter(p => p.data >= pStart && p.data <= pEnd);
     } else if (period === 'custom' && customStart && customEnd) {
-      const start = new Date(customStart);
-      const end = new Date(customEnd);
+      const start = parseInputDate(customStart);
+      const end = parseInputDate(customEnd, true);
+      if (!start || !end) return [];
       const durationMs = end.getTime() - start.getTime();
       const pEnd = new Date(start.getTime() - 1);
       const pStart = new Date(pEnd.getTime() - durationMs);
@@ -83,10 +83,9 @@ export const InsightsSection: React.FC<InsightsSectionProps> = ({ posts, allPost
       daysStats[day].count += 1;
     });
 
-    type BestDayItem = { dayName: string; avg: number; diff?: number };
-    let bestDayEng: BestDayItem | null = null;
-    for (const dStr of Object.keys(daysStats)) {
-      const day = parseInt(dStr, 10);
+    let bestDayEng = null as { dayName: string, avg: number, diff: number } | null;
+    Object.keys(daysStats).forEach(dStr => {
+      const day = parseInt(dStr);
       const stat = daysStats[day];
       if (stat.count >= 2) {
         const avg = stat.totalEng / stat.count;
@@ -95,7 +94,7 @@ export const InsightsSection: React.FC<InsightsSectionProps> = ({ posts, allPost
           bestDayEng = { dayName: daysMap[day], avg, diff };
         }
       }
-    }
+    });
 
     const daysAlcanceStats: Record<number, { totalAlc: number, count: number }> = {};
     posts.forEach(p => {
@@ -105,9 +104,9 @@ export const InsightsSection: React.FC<InsightsSectionProps> = ({ posts, allPost
       daysAlcanceStats[day].count += 1;
     });
 
-    let bestDayAlc: BestDayItem | null = null;
-    for (const dStr of Object.keys(daysAlcanceStats)) {
-      const day = parseInt(dStr, 10);
+    let bestDayAlc = null as { dayName: string, avg: number } | null;
+    Object.keys(daysAlcanceStats).forEach(dStr => {
+      const day = parseInt(dStr);
       const stat = daysAlcanceStats[day];
       if (stat.count >= 2) {
         const avg = stat.totalAlc / stat.count;
@@ -115,7 +114,7 @@ export const InsightsSection: React.FC<InsightsSectionProps> = ({ posts, allPost
           bestDayAlc = { dayName: daysMap[day], avg };
         }
       }
-    }
+    });
 
     const prevTotalPosts = prevPosts.length;
     const prevAvgAlcance = prevTotalPosts ? prevPosts.reduce((acc, p) => acc + p.alcance, 0) / prevTotalPosts : null;
@@ -203,9 +202,9 @@ export const InsightsSection: React.FC<InsightsSectionProps> = ({ posts, allPost
 
   if (insightsData.totalPosts < 5) {
     return (
-      <div className={cn("mb-10 border rounded-[16px] p-8 text-center transition-colors", darkMode ? "bg-[#121212] border-[#262626] text-white" : "bg-white border-gray-200 text-gray-900 shadow-sm")}>
-        <h3 className={cn("text-xl font-bold mb-2", darkMode ? "text-white" : "text-gray-900")}>Insights Automatizados</h3>
-        <p className={darkMode ? "text-gray-400" : "text-gray-600"}>Poucos reels no período para gerar insights confiáveis (mínimo de 5).</p>
+      <div className="mb-10 bg-[#121212] border border-[#262626] rounded-[16px] p-8 text-center">
+        <h3 className="text-xl font-bold text-white mb-2">Insights Automatizados</h3>
+        <p className="text-gray-400">Poucos reels no período para gerar insights confiáveis (mínimo de 5).</p>
       </div>
     );
   }
@@ -215,7 +214,7 @@ export const InsightsSection: React.FC<InsightsSectionProps> = ({ posts, allPost
       <span className="text-[#E1306C] text-xs font-bold tracking-[0.2em]">INSIGHTS</span>
       <div className="flex flex-col sm:flex-row justify-between sm:items-end gap-2 mb-6">
         <div>
-          <h2 className={cn("text-2xl font-bold", darkMode ? "text-white" : "text-gray-900")}>Insights Automatizados</h2>
+          <h2 className="text-2xl font-bold text-white">Insights Automatizados</h2>
           <p className="text-xs text-gray-500 mt-1">Período ativo: {period} · {insightsData.totalPosts} reels analisados</p>
         </div>
       </div>
@@ -223,7 +222,7 @@ export const InsightsSection: React.FC<InsightsSectionProps> = ({ posts, allPost
       <div className="grid grid-cols-2 gap-2 sm:gap-6">
         {/* Card 1: Melhor dia da semana */}
         <motion.div 
-          className={cn("border p-3 sm:p-6 rounded-[12px] hover:border-[#E1306C] transition-all duration-300", darkMode ? "bg-[#121212] border-[#262626]" : "bg-white border-gray-200 shadow-sm")}
+          className="bg-[#121212] border border-[#262626] p-3 sm:p-6 rounded-[12px] hover:border-[#E1306C] transition-all duration-300"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.1 }}
@@ -232,12 +231,12 @@ export const InsightsSection: React.FC<InsightsSectionProps> = ({ posts, allPost
             <div className="p-1.5 rounded-full bg-gradient-to-br from-[#F58529] via-[#DD2A7B] to-[#8134AF]">
               <Calendar className="w-3 h-3 sm:w-5 sm:h-5 text-white" />
             </div>
-            <h3 className={cn("text-[9px] sm:text-xs font-bold uppercase tracking-wider", darkMode ? "text-gray-400" : "text-gray-500")}>Melhor Dia</h3>
+            <h3 className="text-gray-400 text-[9px] sm:text-xs font-bold uppercase tracking-wider">Melhor Dia</h3>
           </div>
-          <div className={cn("text-lg sm:text-2xl font-bold mb-1", darkMode ? "text-white" : "text-gray-900")}>
+          <div className="text-lg sm:text-2xl font-bold text-white mb-1">
             {insightsData.bestDayEng ? insightsData.bestDayEng.dayName : 'Dados insuf.'}
           </div>
-          <p className={cn("text-[9px] sm:text-xs", darkMode ? "text-gray-400" : "text-gray-600")}>
+          <p className="text-[9px] sm:text-xs text-gray-400">
             {insightsData.bestDayEng 
               ? `Média ${insightsData.bestDayEng.avg.toFixed(2).replace('.', ',')}% engaj.`
               : 'Mínimo de 2 reels por dia necessário.'}
@@ -246,7 +245,7 @@ export const InsightsSection: React.FC<InsightsSectionProps> = ({ posts, allPost
 
         {/* Card 2: Dia com maior alcance médio */}
         <motion.div 
-          className={cn("border p-3 sm:p-6 rounded-[12px] hover:border-[#E1306C] transition-all duration-300", darkMode ? "bg-[#121212] border-[#262626]" : "bg-white border-gray-200 shadow-sm")}
+          className="bg-[#121212] border border-[#262626] p-3 sm:p-6 rounded-[12px] hover:border-[#E1306C] transition-all duration-300"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.15 }}
@@ -255,12 +254,12 @@ export const InsightsSection: React.FC<InsightsSectionProps> = ({ posts, allPost
             <div className="p-1.5 rounded-full bg-gradient-to-br from-[#F58529] via-[#DD2A7B] to-[#8134AF]">
               <Eye className="w-3 h-3 sm:w-5 sm:h-5 text-white" />
             </div>
-            <h3 className={cn("text-[9px] sm:text-xs font-bold uppercase tracking-wider", darkMode ? "text-gray-400" : "text-gray-500")}>Maior Alcance</h3>
+            <h3 className="text-gray-400 text-[9px] sm:text-xs font-bold uppercase tracking-wider">Maior Alcance</h3>
           </div>
-          <div className={cn("text-lg sm:text-2xl font-bold mb-1", darkMode ? "text-white" : "text-gray-900")}>
+          <div className="text-lg sm:text-2xl font-bold text-white mb-1">
             {insightsData.bestDayAlc ? insightsData.bestDayAlc.dayName : 'Dados insuf.'}
           </div>
-          <p className={cn("text-[9px] sm:text-xs", darkMode ? "text-gray-400" : "text-gray-600")}>
+          <p className="text-[9px] sm:text-xs text-gray-400">
             {insightsData.bestDayAlc
               ? `Média de ${Math.round(insightsData.bestDayAlc.avg).toLocaleString('pt-BR')} alcance/post.`
               : 'Dados insuficientes.'}
@@ -269,7 +268,7 @@ export const InsightsSection: React.FC<InsightsSectionProps> = ({ posts, allPost
 
         {/* Card 3: Alcance médio por post */}
         <motion.div 
-          className={cn("border p-3 sm:p-6 rounded-[12px] hover:border-[#E1306C] transition-all duration-300", darkMode ? "bg-[#121212] border-[#262626]" : "bg-white border-gray-200 shadow-sm")}
+          className="bg-[#121212] border border-[#262626] p-3 sm:p-6 rounded-[12px] hover:border-[#E1306C] transition-all duration-300"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.2 }}
@@ -278,9 +277,9 @@ export const InsightsSection: React.FC<InsightsSectionProps> = ({ posts, allPost
             <div className="p-1.5 rounded-full bg-gradient-to-br from-[#F58529] via-[#DD2A7B] to-[#8134AF]">
               <Activity className="w-3 h-3 sm:w-5 sm:h-5 text-white" />
             </div>
-            <h3 className={cn("text-[9px] sm:text-xs font-bold uppercase tracking-wider", darkMode ? "text-gray-400" : "text-gray-500")}>Alcance Médio</h3>
+            <h3 className="text-gray-400 text-[9px] sm:text-xs font-bold uppercase tracking-wider">Alcance Médio</h3>
           </div>
-          <div className={cn("text-xl sm:text-3xl font-bold mb-1", darkMode ? "text-white" : "text-gray-900")}>
+          <div className="text-xl sm:text-3xl font-bold text-white mb-1">
             {Math.round(insightsData.geralAvgAlcance).toLocaleString('pt-BR')}
           </div>
           <div className="flex items-center text-[9px] sm:text-sm">
@@ -296,7 +295,7 @@ export const InsightsSection: React.FC<InsightsSectionProps> = ({ posts, allPost
 
         {/* Card 4: Tendência de engajamento */}
         <motion.div 
-          className={cn("border p-3 sm:p-6 rounded-[12px] hover:border-[#E1306C] transition-all duration-300", darkMode ? "bg-[#121212] border-[#262626]" : "bg-white border-gray-200 shadow-sm")}
+          className="bg-[#121212] border border-[#262626] p-3 sm:p-6 rounded-[12px] hover:border-[#E1306C] transition-all duration-300"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.25 }}
@@ -305,19 +304,19 @@ export const InsightsSection: React.FC<InsightsSectionProps> = ({ posts, allPost
             <div className="p-1.5 rounded-full bg-gradient-to-br from-[#F58529] via-[#DD2A7B] to-[#8134AF]">
               {insightsData.tendencia.status === 'Em alta' ? <TrendingUp className="w-3 h-3 sm:w-5 sm:h-5 text-white" /> : <TrendingDown className="w-3 h-3 sm:w-5 sm:h-5 text-white" />}
             </div>
-            <h3 className={cn("text-[9px] sm:text-xs font-bold uppercase tracking-wider", darkMode ? "text-gray-400" : "text-gray-500")}>Tendência</h3>
+            <h3 className="text-gray-400 text-[9px] sm:text-xs font-bold uppercase tracking-wider">Tendência</h3>
           </div>
-          <div className={cn("text-xl sm:text-3xl font-bold mb-1", darkMode ? "text-white" : "text-gray-900")}>
+          <div className="text-xl sm:text-3xl font-bold text-white mb-1">
             {insightsData.tendencia.status}
           </div>
-          <p className={cn("text-[9px] sm:text-xs", darkMode ? "text-gray-400" : "text-gray-600")}>
+          <p className="text-[9px] sm:text-xs text-gray-400">
             {insightsData.tendencia.pct.toFixed(1).replace('.', ',')}% vs. período anterior
           </p>
         </motion.div>
 
         {/* Card 5: Reel destaque */}
         <motion.div 
-          className={cn("border p-3 sm:p-6 rounded-[12px] hover:border-[#E1306C] transition-all duration-300 flex flex-col", darkMode ? "bg-[#121212] border-[#262626]" : "bg-white border-gray-200 shadow-sm")}
+          className="bg-[#121212] border border-[#262626] p-3 sm:p-6 rounded-[12px] hover:border-[#E1306C] transition-all duration-300 flex flex-col"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.3 }}
@@ -326,12 +325,12 @@ export const InsightsSection: React.FC<InsightsSectionProps> = ({ posts, allPost
             <div className="p-1.5 rounded-full bg-gradient-to-br from-[#F58529] via-[#DD2A7B] to-[#8134AF]">
               <Sparkles className="w-3 h-3 sm:w-5 sm:h-5 text-white" />
             </div>
-            <h3 className={cn("text-[9px] sm:text-xs font-bold uppercase tracking-wider", darkMode ? "text-gray-400" : "text-gray-500")}>Reel Destaque</h3>
+            <h3 className="text-gray-400 text-[9px] sm:text-xs font-bold uppercase tracking-wider">Reel Destaque</h3>
           </div>
           <div className="flex gap-2 items-center">
             <ReelThumb url={insightsData.topReel.post} width="32px" height="57px" />
             <div className="flex-1">
-              <div className={cn("text-sm sm:text-xl font-bold", darkMode ? "text-white" : "text-gray-900")}>{insightsData.topReel.realEngajamento.toFixed(2).replace('.', ',')}%</div>
+              <div className="text-sm sm:text-xl font-bold text-white">{insightsData.topReel.realEngajamento.toFixed(2).replace('.', ',')}%</div>
               <div className="text-[9px] text-[#E1306C] font-semibold">{insightsData.multiple}x a média</div>
             </div>
           </div>
@@ -339,7 +338,7 @@ export const InsightsSection: React.FC<InsightsSectionProps> = ({ posts, allPost
 
         {/* Card 6: Efeito link na bio */}
         <motion.div 
-          className={cn("border p-3 sm:p-6 rounded-[12px] hover:border-[#E1306C] transition-all duration-300", darkMode ? "bg-[#121212] border-[#262626]" : "bg-white border-gray-200 shadow-sm")}
+          className="bg-[#121212] border border-[#262626] p-3 sm:p-6 rounded-[12px] hover:border-[#E1306C] transition-all duration-300"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.35 }}
@@ -348,19 +347,19 @@ export const InsightsSection: React.FC<InsightsSectionProps> = ({ posts, allPost
             <div className="p-1.5 rounded-full bg-gradient-to-br from-[#F58529] via-[#DD2A7B] to-[#8134AF]">
               <ExternalLink className="w-3 h-3 sm:w-5 sm:h-5 text-white" />
             </div>
-            <h3 className={cn("text-[9px] sm:text-xs font-bold uppercase tracking-wider", darkMode ? "text-gray-400" : "text-gray-500")}>Link na Bio</h3>
+            <h3 className="text-gray-400 text-[9px] sm:text-xs font-bold uppercase tracking-wider">Link na Bio</h3>
           </div>
-          <div className={cn("text-sm font-bold mb-1", darkMode ? "text-white" : "text-gray-900")}>
+          <div className="text-sm font-bold text-white mb-1">
             {insightsData.bioEffect.valid ? 'Análise Concluída' : 'Dados insuficientes'}
           </div>
-          <p className={cn("text-[9px] sm:text-xs", darkMode ? "text-gray-400" : "text-gray-600")}>
+          <p className="text-[9px] sm:text-xs text-gray-400">
             {insightsData.bioEffect.text}
           </p>
         </motion.div>
 
         {/* Card 7: Tamanho da legenda */}
         <motion.div 
-          className={cn("border p-3 sm:p-6 rounded-[12px] hover:border-[#E1306C] transition-all duration-300", darkMode ? "bg-[#121212] border-[#262626]" : "bg-white border-gray-200 shadow-sm")}
+          className="bg-[#121212] border border-[#262626] p-3 sm:p-6 rounded-[12px] hover:border-[#E1306C] transition-all duration-300"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.4 }}
@@ -369,19 +368,19 @@ export const InsightsSection: React.FC<InsightsSectionProps> = ({ posts, allPost
             <div className="p-1.5 rounded-full bg-gradient-to-br from-[#F58529] via-[#DD2A7B] to-[#8134AF]">
               <FileText className="w-3 h-3 sm:w-5 sm:h-5 text-white" />
             </div>
-            <h3 className={cn("text-[9px] sm:text-xs font-bold uppercase tracking-wider", darkMode ? "text-gray-400" : "text-gray-500")}>Legenda</h3>
+            <h3 className="text-gray-400 text-[9px] sm:text-xs font-bold uppercase tracking-wider">Legenda</h3>
           </div>
-          <div className={cn("text-sm font-bold mb-1", darkMode ? "text-white" : "text-gray-900")}>
+          <div className="text-sm font-bold text-white mb-1">
             {insightsData.legResult}
           </div>
-          <p className={cn("text-[9px] sm:text-xs", darkMode ? "text-gray-400" : "text-gray-600")}>
-            Comparação de performance por mediana de caracteres.
+          <p className="text-[9px] sm:text-xs text-gray-400">
+            Comparação por mediana de caracteres.
           </p>
         </motion.div>
 
         {/* Card 8: Frequência */}
         <motion.div 
-          className={cn("border p-3 sm:p-6 rounded-[12px] hover:border-[#E1306C] transition-all duration-300", darkMode ? "bg-[#121212] border-[#262626]" : "bg-white border-gray-200 shadow-sm")}
+          className="bg-[#121212] border border-[#262626] p-3 sm:p-6 rounded-[12px] hover:border-[#E1306C] transition-all duration-300"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.45 }}
@@ -390,12 +389,12 @@ export const InsightsSection: React.FC<InsightsSectionProps> = ({ posts, allPost
             <div className="p-1.5 rounded-full bg-gradient-to-br from-[#F58529] via-[#DD2A7B] to-[#8134AF]">
               <Activity className="w-3 h-3 sm:w-5 sm:h-5 text-white" />
             </div>
-            <h3 className={cn("text-[9px] sm:text-xs font-bold uppercase tracking-wider", darkMode ? "text-gray-400" : "text-gray-500")}>Frequência</h3>
+            <h3 className="text-gray-400 text-[9px] sm:text-xs font-bold uppercase tracking-wider">Frequência</h3>
           </div>
-          <div className={cn("text-xl sm:text-3xl font-bold mb-1", darkMode ? "text-white" : "text-gray-900")}>
+          <div className="text-xl sm:text-3xl font-bold text-white mb-1">
             {insightsData.postsPerWeek.toFixed(1).replace('.', ',')}
           </div>
-          <p className={cn("text-[9px] sm:text-xs", darkMode ? "text-gray-400" : "text-gray-600")}>
+          <p className="text-[9px] sm:text-xs text-gray-400">
             Posts por semana.
           </p>
         </motion.div>
@@ -404,7 +403,7 @@ export const InsightsSection: React.FC<InsightsSectionProps> = ({ posts, allPost
       {/* Card 9: Alerta de queda / estabilidade */}
       {period !== 'tudo' && (
         <motion.div 
-          className={cn("mt-4 p-4 rounded-[12px] border transition-all duration-300", insightsData.dropAlcance ? (darkMode ? "bg-red-950/25 border-red-900/50" : "bg-red-50 border-red-200") : (darkMode ? "bg-[#121212] border-[#262626]" : "bg-white border-gray-200 shadow-sm"))}
+          className={cn("mt-4 p-4 rounded-[12px] border transition-all duration-300", insightsData.dropAlcance ? "bg-red-950/25 border-red-900/50" : "bg-[#121212] border-[#262626]")}
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.5 }}
@@ -413,12 +412,12 @@ export const InsightsSection: React.FC<InsightsSectionProps> = ({ posts, allPost
             <div className={cn("p-1.5 rounded-full", insightsData.dropAlcance ? "bg-red-600" : "bg-green-600")}>
               {insightsData.dropAlcance ? <AlertTriangle className="w-4 h-4 text-white" /> : <CheckCircle2 className="w-4 h-4 text-white" />}
             </div>
-            <h3 className={cn("text-xs font-bold uppercase tracking-wider", darkMode ? "text-gray-400" : "text-gray-500")}>Status de Desempenho</h3>
+            <h3 className="text-gray-400 text-xs font-bold uppercase tracking-wider">Status de Desempenho</h3>
           </div>
-          <div className={cn("text-lg font-bold mb-1", darkMode ? "text-white" : "text-gray-900")}>
+          <div className="text-lg font-bold text-white mb-1">
             {insightsData.dropAlcance ? 'Alerta de Queda' : 'Tudo estável'}
           </div>
-          <p className={cn("text-xs", darkMode ? "text-gray-400" : "text-gray-600")}>
+          <p className="text-xs text-gray-400">
             {insightsData.dropAlcance 
               ? 'O alcance médio por post caiu mais de 20% em comparação ao período anterior.' 
               : 'Nenhuma queda expressiva de alcance detectada em relação ao período anterior.'}
