@@ -1,10 +1,8 @@
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
-import { fileURLToPath, URL } from 'node:url';
-import { defineConfig } from 'vite';
-import { VitePWA } from 'vite-plugin-pwa';
-
-const THEME = '#0A0A0A';
+import path from 'path';
+import {defineConfig} from 'vite';
+import {VitePWA} from 'vite-plugin-pwa';
 
 export default defineConfig(() => {
   return {
@@ -12,14 +10,14 @@ export default defineConfig(() => {
       react(),
       tailwindcss(),
       VitePWA({
-        registerType: 'autoUpdate',
-        injectRegister: 'auto',
-        includeAssets: ['favicon.ico', 'favicon.svg', 'apple-touch-icon.png', 'icons/*.png'],
+        // 'prompt': o usuário decide quando aplicar a atualização (toast no app)
+        registerType: 'prompt',
+        includeAssets: ['icons/favicon-32.png', 'icons/apple-touch-icon.png'],
         manifest: {
           id: '/',
-          name: 'MetricFlow · Instagram Analytics',
+          name: 'MetricFlow – Instagram Analytics',
           short_name: 'MetricFlow',
-          description: 'Painel profissional de análise de métricas do Instagram.',
+          description: 'Dashboard profissional de métricas do Instagram.',
           lang: 'pt-BR',
           dir: 'ltr',
           start_url: '/',
@@ -27,67 +25,48 @@ export default defineConfig(() => {
           display: 'standalone',
           display_override: ['standalone', 'minimal-ui'],
           orientation: 'any',
-          background_color: THEME,
-          theme_color: THEME,
+          background_color: '#0A0A0A',
+          theme_color: '#0A0A0A',
           categories: ['business', 'productivity', 'social'],
           icons: [
-            { src: '/icons/pwa-64x64.png', sizes: '64x64', type: 'image/png' },
-            { src: '/icons/pwa-192x192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
-            { src: '/icons/pwa-512x512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
-            { src: '/icons/maskable-icon-192x192.png', sizes: '192x192', type: 'image/png', purpose: 'maskable' },
-            { src: '/icons/maskable-icon-512x512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+            {src: 'icons/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any'},
+            {src: 'icons/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any'},
+            {src: 'icons/maskable-192.png', sizes: '192x192', type: 'image/png', purpose: 'maskable'},
+            {src: 'icons/maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable'},
           ],
         },
         workbox: {
-          // App shell offline (JS/CSS/HTML/ícones). Splash screens do iOS ficam fora do precache (são grandes e o iOS só as lê na instalação).
-          globPatterns: ['**/*.{js,css,html,ico,png,svg,webmanifest}'],
-          globIgnores: ['splash/**', 'icons/icon-source.svg'],
-          maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
+          // App shell 100% offline
+          globPatterns: ['**/*.{js,css,html,png,svg,ico,webmanifest}'],
           navigateFallback: '/index.html',
           cleanupOutdatedCaches: true,
-          clientsClaim: true,
-          skipWaiting: true,
+          maximumFileSizeToCacheInBytes: 3 * 1024 * 1024,
           runtimeCaching: [
             {
-              // Planilha publicada (CSV): sempre tenta a rede, usa o cache se estiver offline/lento
-              urlPattern: ({ url }) =>
-                url.hostname === 'docs.google.com' ||
-                (url.hostname.endsWith('.googleusercontent.com') && url.hostname !== 'script.googleusercontent.com'),
-              handler: 'NetworkFirst',
-              options: {
-                cacheName: 'sheet-data',
-                networkTimeoutSeconds: 10,
-                expiration: { maxEntries: 10, maxAgeSeconds: 60 * 60 * 24 * 30 },
-                cacheableResponse: { statuses: [0, 200] },
-              },
-            },
-            {
-              // Proxy das miniaturas dos reels (Apps Script)
-              urlPattern: ({ url }) =>
-                url.hostname === 'script.google.com' || url.hostname === 'script.googleusercontent.com',
-              handler: 'CacheFirst',
+              // Miniaturas dos reels (proxy do Apps Script): abre rápido e funciona offline
+              urlPattern: ({url}: {url: URL}) => url.hostname === 'script.google.com' || url.hostname === 'script.googleusercontent.com',
+              handler: 'StaleWhileRevalidate',
               options: {
                 cacheName: 'reel-thumbs',
-                expiration: { maxEntries: 400, maxAgeSeconds: 60 * 60 * 24 * 7, purgeOnQuotaError: true },
-                cacheableResponse: { statuses: [200] },
+                expiration: {maxEntries: 150, maxAgeSeconds: 60 * 60 * 24 * 3},
+                cacheableResponse: {statuses: [200]},
               },
             },
           ],
         },
-        devOptions: { enabled: false },
+        devOptions: {enabled: false},
       }),
     ],
     resolve: {
       alias: {
-        '@': fileURLToPath(new URL('./src', import.meta.url)),
+        '@': path.resolve(__dirname, 'src'),
       },
-    },
-    build: {
-      chunkSizeWarningLimit: 1200,
     },
     server: {
       // HMR is disabled in AI Studio via DISABLE_HMR env var.
+      // Do not modify—file watching is disabled to prevent flickering during agent edits.
       hmr: process.env.DISABLE_HMR !== 'true',
+      // Disable file watching when DISABLE_HMR is true to save CPU during agent edits.
       watch: process.env.DISABLE_HMR === 'true' ? null : {},
     },
   };

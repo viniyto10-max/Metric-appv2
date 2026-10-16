@@ -1,8 +1,6 @@
 {
-  "name": "MetricFlow · Instagram Analytics",
-  "description": "Painel profissional de análise de métricas do Instagram (PWA).",
+  "name": "Instagram Analytics Dashboard",
+  "description": "Professional Instagram metrics analysis dashboard.",
   "requestFramePermissions": [],
-  "majorCapabilities": [
-    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
-  ]
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

@@ -1,58 +1,48 @@
-# MetricFlow · Instagram Analytics (PWA)
+# MetricFlow – Instagram Analytics (PWA)
 
-Painel de métricas do Instagram que lê uma planilha Google publicada em CSV.
-Funciona como aplicativo instalável (PWA) no **Android** e no **iOS/iPadOS**, com ícone próprio, tela de abertura e funcionamento offline com os últimos dados carregados.
+Dashboard de métricas do Instagram, agora instalável como app no **Android** e **iOS**,
+com tela cheia, ícone na tela inicial, funcionamento offline e atualização automática.
 
 ## Rodar localmente
-
-Pré-requisito: Node.js 20+
 
 ```bash
 npm install
 npm run dev        # desenvolvimento (http://localhost:3000)
-npm run build      # gera a versão final em /dist
-npm run preview    # testa a versão final (http://localhost:4173) — o service worker só roda aqui/produção
+npm run build      # gera /dist com service worker + manifest
+npm run preview    # serve o build para testar o PWA (http://localhost:4173)
 ```
 
-## Publicar
+> O service worker só é ativado no **build** (`npm run build && npm run preview`).
 
-Publique a pasta `dist/` em qualquer hospedagem estática **com HTTPS** (obrigatório para PWA):
-Vercel, Netlify, Firebase Hosting, Cloudflare Pages, GitHub Pages etc.
+## Publicar (obrigatório HTTPS)
 
-- Vercel/Netlify: comando de build `npm run build`, pasta de saída `dist`.
-- O app foi configurado para rodar na raiz do domínio (`/`).
+PWA só instala em HTTPS. Opções gratuitas: **Vercel**, **Netlify**, **Cloudflare Pages**.
+Configuração: build `npm run build`, pasta de saída `dist`.
 
-## Instalar no celular
+Se publicar em subpasta (ex.: GitHub Pages `usuario.github.io/repo/`), defina `base: '/repo/'`
+no `vite.config.ts` e ajuste `start_url`/`scope` do manifest para o mesmo caminho.
 
-**Android (Chrome):** abra o site → menu ⋮ → **Instalar app** (ou "Adicionar à tela inicial").
+## Como instalar
 
-**iPhone/iPad (Safari):** abra o site → botão **Compartilhar** → **Adicionar à Tela de Início**.
+- **Android (Chrome/Edge):** aparece o banner "Instalar MetricFlow" (ou menu ⋮ → *Instalar app*).
+- **iPhone/iPad (Safari):** Compartilhar → *Adicionar à Tela de Início*.
+  (o iOS não tem prompt automático; o app mostra o passo a passo).
 
-## O que o PWA inclui
+## O que foi adicionado
 
-| Item | Onde |
+| Arquivo | Função |
 |---|---|
-| Manifest (nome, cores, ícones, modo standalone) | gerado pelo `vite-plugin-pwa` em `vite.config.ts` |
-| Service worker (app offline + cache da planilha e miniaturas) | gerado no build (`dist/sw.js`) |
-| Ícones Android (normal e *maskable*) | `public/icons/` |
-| Ícone iOS (`apple-touch-icon`) | `public/apple-touch-icon.png` |
-| Telas de abertura do iOS (iPhone SE ao iPhone 16 Pro Max, iPads) | `public/splash/` |
-| Favicons | `public/favicon.ico`, `public/favicon.svg` |
-| Áreas seguras (notch / Dynamic Island / barra inferior) | `src/index.css` (`.app-shell`) |
-
-O app se atualiza sozinho quando uma nova versão é publicada.
-
-## Dados
-
-A URL da planilha (CSV) e do proxy de imagens ficam em `src/constants.ts`.
-O último CSV carregado é guardado no aparelho; sem internet, o painel abre com esses dados.
+| `vite.config.ts` | `vite-plugin-pwa`: manifest, service worker (Workbox), cache do app e das miniaturas |
+| `index.html` | meta tags Android/iOS, `viewport-fit=cover`, ícones |
+| `public/icons/*` | ícones 192/512, *maskable* (Android) e `apple-touch-icon` (iOS) |
+| `src/index.css` | safe-areas (notch), sem zoom em inputs no iOS, sem highlight de toque |
+| `src/hooks/usePWA.ts` | instalação, status online/offline, aviso de nova versão |
+| `src/components/PWAPrompts.tsx` | banners de instalação (Android/iOS), offline e atualização |
+| `src/components/Splash.tsx` | tela de carregamento / erro com "Tentar novamente" |
+| `src/App.tsx` | cache local do CSV (abre instantâneo e offline), layout responsivo |
 
 ## Trocar o ícone
 
-O desenho do ícone está em `scripts/generate-icons.mjs` (SVG). Para regerar todos os tamanhos:
-
-```bash
-npm i -D playwright-core
-npx playwright-core install chromium   # se não tiver Chromium
-node scripts/generate-icons.mjs public
-```
+Substitua os PNGs em `public/icons/` mantendo nomes e tamanhos
+(`icon-192`, `icon-512`, `maskable-192`, `maskable-512`, `apple-touch-icon` 180×180, `favicon-32`).
+Os *maskable* devem ter o desenho dentro dos 80% centrais.
