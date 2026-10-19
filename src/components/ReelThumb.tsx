@@ -62,7 +62,7 @@ export const ReelThumb: React.FC<ReelThumbProps> = ({ url, width = '48px', heigh
         className="rounded-[8px] overflow-hidden relative bg-[#1A1A1A] cursor-pointer hover:scale-[1.03] transition-transform duration-200"
         onClick={handleClick}
       >
-        <div className="absolute inset-0 flex items-center justify-center animate-pulse bg-[#262626]">
+        <div className={`absolute inset-0 flex items-center justify-center bg-[#262626] ${(!error && !imgSrc) ? 'animate-pulse' : ''}`}>
           <Film className="w-6 h-6 text-gray-600" />
         </div>
         <AnimatePresence>

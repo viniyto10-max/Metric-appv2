@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import { InstagramPost } from '../utils/dataParser';
+import { calculateComparisonDateRanges, isDateInRange } from '../utils/dateRanges';
 import { ReelThumb } from './ReelThumb';
 import { cn } from '@/lib/utils';
 import { motion, useReducedMotion } from 'framer-motion';
@@ -22,49 +23,9 @@ export const InsightsSection: React.FC<InsightsSectionProps> = ({ posts, allPost
 
   const prevPosts = useMemo(() => {
     if (period === 'tudo') return [];
-    const now = new Date();
-    let startDate = new Date();
-    let endDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
-
-    if (period === '7') {
-      endDate = new Date();
-      startDate = new Date();
-      startDate.setDate(endDate.getDate() - 7);
-      const pEnd = new Date(startDate);
-      const pStart = new Date(startDate);
-      pStart.setDate(pEnd.getDate() - 7);
-      return allPosts.filter(p => p.data >= pStart && p.data < pEnd);
-    } else if (period === '30') {
-      endDate = new Date();
-      startDate = new Date();
-      startDate.setDate(endDate.getDate() - 30);
-      const pEnd = new Date(startDate);
-      const pStart = new Date(startDate);
-      pStart.setDate(pEnd.getDate() - 30);
-      return allPosts.filter(p => p.data >= pStart && p.data < pEnd);
-    } else if (period === '90') {
-      endDate = new Date();
-      startDate = new Date();
-      startDate.setDate(endDate.getDate() - 90);
-      const pEnd = new Date(startDate);
-      const pStart = new Date(startDate);
-      pStart.setDate(pEnd.getDate() - 90);
-      return allPosts.filter(p => p.data >= pStart && p.data < pEnd);
-    } else if (period === 'ano') {
-      const year = now.getFullYear();
-      startDate = new Date(year, 0, 1);
-      const pStart = new Date(year - 1, 0, 1);
-      const pEnd = new Date(year - 1, 11, 31, 23, 59, 59);
-      return allPosts.filter(p => p.data >= pStart && p.data <= pEnd);
-    } else if (period === 'custom' && customStart && customEnd) {
-      const start = new Date(customStart);
-      const end = new Date(customEnd);
-      const durationMs = end.getTime() - start.getTime();
-      const pEnd = new Date(start.getTime() - 1);
-      const pStart = new Date(pEnd.getTime() - durationMs);
-      return allPosts.filter(p => p.data >= pStart && p.data <= pEnd);
-    }
-    return [];
+    const { previous } = calculateComparisonDateRanges(period as any, customStart, customEnd);
+    if (!previous) return [];
+    return allPosts.filter(p => isDateInRange(p.data, previous));
   }, [allPosts, period, customStart, customEnd]);
 
   const insightsData = useMemo(() => {

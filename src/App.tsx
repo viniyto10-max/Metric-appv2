@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, Suspense, lazy } from 'react';
 import { SHEET_CSV_URL } from './constants';
 import { parseCSVData, InstagramPost, getPostType } from './utils/dataParser';
 import { calculateComparisonDateRanges, isDateInRange } from './utils/dateRanges';
@@ -7,10 +7,12 @@ import { DataTable } from './components/DataTable';
 import { TopReels } from './components/TopReels';
 import { InsightsSection } from './components/InsightsSection';
 import { Sidebar } from './components/Sidebar';
-import { ReportPage } from './components/ReportPage';
 import { useFollowersDelta } from './hooks/useFollowersDelta';
 import { FollowersDelta } from './components/FollowersDelta';
 import { PWAPrompts } from './components/PWAPrompts';
+import { ComparisonPage } from './components/ComparisonPage';
+
+const ReportPage = lazy(() => import('./components/ReportPage').then(m => ({ default: m.ReportPage })));
 import { cn } from './lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts';
@@ -29,7 +31,8 @@ import {
   Moon,
   Menu,
   FileText,
-  LayoutDashboard
+  LayoutDashboard,
+  ArrowLeftRight
 } from 'lucide-react';
 
 const CACHE_KEY = 'mf:csv-cache-v1';
@@ -49,7 +52,7 @@ export default function App() {
   const followersDelta = useFollowersDelta(seguidores, isNetworkData);
 
   // Navigation State
-  const [activeTab, setActiveTab] = useState<'overview' | 'report'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'comparison' | 'report'>('overview');
   const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(true);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState<boolean>(false);
 
@@ -61,46 +64,96 @@ export default function App() {
   const [currentPage, setCurrentPage] = useState<number>(1);
 
   const filteredData = useMemo(() => {
-    const range = calculateComparisonDateRanges(period, customStart, customEnd).current;
+    const dateRanges = calculateComparisonDateRanges(period, customStart, customEnd);
+    const range = dateRanges.current;
     let filtered = data.filter(post => isDateInRange(post.data, range));
 
     if (postTypeFilter !== 'all') {
       filtered = filtered.filter(post => getPostType(post) === postTypeFilter);
     }
 
-    // Grouping for charts
-    const grouped = filtered.reduce((acc, curr) => {
+    // Continuous daily chart covering all calendar days in range
+    let chartData: Array<{ data: Date; alcance: number; engajamentoTotal: number }>;
+
+    if (dateRanges.current) {
+      const dailyMap = new Map<string, { data: Date; alcance: number; engajamentoTotal: number }>();
+      const cursor = new Date(dateRanges.current.start);
+      const end = new Date(dateRanges.current.end);
+      cursor.setHours(0, 0, 0, 0);
+      end.setHours(23, 59, 59, 999);
+
+      let count = 0;
+      while (cursor <= end && count < 370) {
+        count++;
+        const dayKey = cursor.toLocaleDateString('pt-BR');
+        dailyMap.set(dayKey, {
+          data: new Date(cursor),
+          alcance: 0,
+          engajamentoTotal: 0
+        });
+        cursor.setDate(cursor.getDate() + 1);
+      }
+
+      filtered.forEach(curr => {
+        const key = curr.data.toLocaleDateString('pt-BR');
+        const item = dailyMap.get(key);
+        if (item) {
+          item.alcance += curr.alcance;
+          item.engajamentoTotal += curr.engajamentoTotal;
+        }
+      });
+
+      chartData = Array.from(dailyMap.values()).sort((a, b) => a.data.getTime() - b.data.getTime());
+    } else {
+      const grouped = filtered.reduce((acc, curr) => {
         const dateKey = curr.data.toDateString();
         if (!acc[dateKey]) {
-            acc[dateKey] = { date: curr.data, alcance: 0, engajamentoTotal: 0, engajamentos: [] };
+          acc[dateKey] = { date: curr.data, alcance: 0, engajamentoTotal: 0 };
         }
         acc[dateKey].alcance += curr.alcance;
         acc[dateKey].engajamentoTotal += curr.engajamentoTotal;
-        acc[dateKey].engajamentos.push(curr.realEngajamento);
         return acc;
-    }, {} as Record<string, any>);
+      }, {} as Record<string, any>);
 
-    const chartData = Object.values(grouped).map(g => ({
+      chartData = Object.values(grouped).map(g => ({
         data: g.date,
         alcance: g.alcance,
-        engajamentoTotal: g.engajamentos.reduce((a: number, b: number) => a + b, 0) / (g.engajamentos.length || 1)
-    })).sort((a, b) => a.data.getTime() - b.data.getTime());
+        engajamentoTotal: g.engajamentoTotal
+      })).sort((a, b) => a.data.getTime() - b.data.getTime());
+    }
 
     return { filtered, chartData };
   }, [data, period, customStart, customEnd, postTypeFilter]);
 
   const { filtered, chartData } = filteredData;
-  const kpis = {
-    alcance: filtered.reduce((acc, curr) => acc + curr.alcance, 0),
-    likes: filtered.reduce((acc, curr) => acc + curr.likes, 0),
-    compartilhamento: filtered.reduce((acc, curr) => acc + curr.compartilhamento, 0),
-    engajamento: (filtered.reduce((acc, curr) => acc + curr.alcance, 0) > 0) 
-        ? (filtered.reduce((acc, curr) => acc + curr.engajamentoTotal, 0) / filtered.reduce((acc, curr) => acc + curr.alcance, 0)) * 100 
-        : 0,
-    engajamentoTotal: filtered.reduce((acc, curr) => acc + curr.engajamentoTotal, 0),
-    comentarios: filtered.reduce((acc, curr) => acc + curr.comentarios, 0),
-    posts: filtered.length,
-  };
+
+  const kpis = useMemo(() => {
+    let alcance = 0;
+    let likes = 0;
+    let compartilhamento = 0;
+    let comentarios = 0;
+    let engajamentoTotal = 0;
+
+    for (const post of filtered) {
+      alcance += post.alcance;
+      likes += post.likes;
+      compartilhamento += post.compartilhamento;
+      comentarios += post.comentarios;
+      engajamentoTotal += post.engajamentoTotal;
+    }
+
+    const engajamento = alcance > 0 ? (engajamentoTotal / alcance) * 100 : 0;
+
+    return {
+      alcance,
+      likes,
+      compartilhamento,
+      comentarios,
+      engajamentoTotal,
+      engajamento,
+      posts: filtered.length,
+    };
+  }, [filtered]);
 
   const applyCsv = useCallback((csvText: string, updatedAt: Date) => {
     const parsed = parseCSVData(csvText);
@@ -231,6 +284,10 @@ export default function App() {
                 {activeTab === 'overview' ? (
                   <>
                     <LayoutDashboard size={15} className="text-[#DD2A7B]" /> Visão Geral
+                  </>
+                ) : activeTab === 'comparison' ? (
+                  <>
+                    <ArrowLeftRight size={15} className="text-[#EC4899]" /> Comparação
                   </>
                 ) : (
                   <>
@@ -437,6 +494,20 @@ export default function App() {
                   <InsightsSection posts={filtered} allPosts={data} period={period} customStart={customStart} customEnd={customEnd} darkMode={darkMode} />
                 </div>
               </motion.div>
+            ) : activeTab === 'comparison' ? (
+              <motion.div
+                key="comparison-tab"
+                initial={{ opacity: 0, y: 15 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -15 }}
+                transition={{ duration: 0.25 }}
+              >
+                {/* Comparação Mensal Dedicated Page */}
+                <ComparisonPage 
+                  posts={data}
+                  darkMode={darkMode}
+                />
+              </motion.div>
             ) : (
               <motion.div
                 key="report-tab"
@@ -445,13 +516,19 @@ export default function App() {
                 exit={{ opacity: 0, y: -15 }}
                 transition={{ duration: 0.25 }}
               >
-                {/* Gerar Relatório Dedicated Page */}
-                <ReportPage 
-                  posts={data}
-                  seguidores={seguidores}
-                  seguindo={seguindo}
-                  darkMode={darkMode}
-                />
+                <Suspense fallback={
+                  <div className="flex flex-col items-center justify-center py-24 text-gray-400 gap-3">
+                    <RefreshCw className="w-7 h-7 animate-spin text-[#EC4899]" />
+                    <span className="text-xs font-medium tracking-wide">Carregando módulo de relatórios executivos...</span>
+                  </div>
+                }>
+                  <ReportPage 
+                    posts={data}
+                    seguidores={seguidores}
+                    seguindo={seguindo}
+                    darkMode={darkMode}
+                  />
+                </Suspense>
               </motion.div>
             )}
           </AnimatePresence>

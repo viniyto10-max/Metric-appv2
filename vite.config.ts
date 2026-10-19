@@ -15,8 +15,8 @@ export default defineConfig(() => {
         includeAssets: ['icons/favicon-32.png', 'icons/apple-touch-icon.png'],
         manifest: {
           id: '/',
-          name: 'MetricFlow – Instagram Analytics',
-          short_name: 'MetricFlow',
+          name: 'InstaTrack – Instagram Analytics',
+          short_name: 'InstaTrack',
           description: 'Dashboard profissional de métricas do Instagram.',
           lang: 'pt-BR',
           dir: 'ltr',
@@ -36,8 +36,9 @@ export default defineConfig(() => {
           ],
         },
         workbox: {
-          // App shell 100% offline
+          // App shell offline precache (ignoring large unused splash screens)
           globPatterns: ['**/*.{js,css,html,png,svg,ico,webmanifest}'],
+          globIgnores: ['**/splash/**'],
           navigateFallback: '/index.html',
           cleanupOutdatedCaches: true,
           maximumFileSizeToCacheInBytes: 3 * 1024 * 1024,
@@ -57,9 +58,30 @@ export default defineConfig(() => {
         devOptions: {enabled: false},
       }),
     ],
+    build: {
+      chunkSizeWarningLimit: 1000,
+      rollupOptions: {
+        output: {
+          manualChunks(id: string) {
+            if (id.includes('jspdf') || id.includes('html2canvas') || id.includes('html-to-image')) {
+              return 'vendor-pdf';
+            }
+            if (id.includes('recharts')) {
+              return 'vendor-charts';
+            }
+            if (id.includes('framer-motion') || id.includes('motion')) {
+              return 'vendor-motion';
+            }
+            if (id.includes('lucide-react')) {
+              return 'vendor-icons';
+            }
+          },
+        },
+      },
+    },
     resolve: {
       alias: {
-        '@': path.resolve(__dirname, 'src'),
+        '@': path.resolve(import.meta.dirname, 'src'),
       },
     },
     server: {

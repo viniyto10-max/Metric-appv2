@@ -75,14 +75,18 @@ export const CoverLightbox: React.FC<CoverLightboxProps> = ({ isOpen, imgSrc, po
             className="rounded-2xl object-contain max-w-[90vw] max-h-[70vh] shadow-[0_25px_60px_-10px_rgba(0,0,0,0.8)] border border-white/10"
           />
 
-          <a
-            href={postUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#E1306C] text-white text-xs font-semibold hover:bg-[#c8235c] transition focus:outline-none focus:ring-2 focus:ring-white"
-          >
-            Abrir no Instagram <ExternalLink size={14} />
-          </a>
+          {postUrl && (
+            <a
+              href={postUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#E1306C] text-white text-xs font-semibold hover:bg-[#c8235c] transition focus:outline-none focus:ring-2 focus:ring-white shadow-lg"
+            >
+              {postUrl.includes('instagram.com/p/') || postUrl.includes('instagram.com/reel/') || postUrl.includes('instagram.com/tv/')
+                ? 'Abrir no Instagram'
+                : 'Abrir imagem original'} <ExternalLink size={14} />
+            </a>
+          )}
         </motion.div>
       </div>
     </AnimatePresence>,

@@ -116,7 +116,7 @@ export const FollowersDelta: React.FC<FollowersDeltaProps> = ({
         <span
           role="status"
           aria-label={getAriaLabel()}
-          className="inline-flex items-center gap-0.5 px-1.5 py-0.5 sm:px-2 rounded-full text-[9px] sm:text-[11px] font-semibold leading-none shrink-0 transition-colors"
+          className="inline-flex items-center gap-0.5 px-1.5 py-0.5 sm:px-2 rounded-full text-[10px] sm:text-xs font-semibold leading-none shrink-0 transition-colors"
           style={getBadgeStyle()}
         >
           {renderIcon()}
@@ -125,7 +125,7 @@ export const FollowersDelta: React.FC<FollowersDeltaProps> = ({
       </div>
 
       {/* Support Line below the number */}
-      <span className="text-[9px] sm:text-[11px] text-[#6b7280] font-normal leading-tight mt-0.5 block truncate max-w-[95px] sm:max-w-none">
+      <span className="text-[10px] sm:text-xs text-[#6b7280] font-normal leading-tight mt-0.5 block truncate max-w-[110px] sm:max-w-none">
         {supportText}
       </span>
     </div>

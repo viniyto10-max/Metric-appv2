@@ -59,7 +59,7 @@ export function PWAPrompts({ hasCachedData }: { hasCachedData: boolean }) {
           >
             <img src="/icons/icon-192.png" alt="" className="h-10 w-10 rounded-xl" />
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-white">Instalar MetricFlow</p>
+              <p className="text-sm font-semibold text-white">Instalar InstaTrack</p>
               <p className="text-xs text-gray-400">Acesso rápido, tela cheia e modo offline</p>
             </div>
             <button onClick={pwa.install} className="flex items-center gap-1 rounded-lg bg-gradient-to-br from-[#F58529] via-[#DD2A7B] to-[#8134AF] px-3 py-2 text-xs font-semibold text-white">
@@ -87,7 +87,7 @@ export function PWAPrompts({ hasCachedData }: { hasCachedData: boolean }) {
             </button>
             <div className="flex items-center gap-3 mb-3">
               <img src="/icons/icon-192.png" alt="" className="h-10 w-10 rounded-xl" />
-              <p className="text-sm font-semibold text-white">Instale o MetricFlow no iPhone</p>
+              <p className="text-sm font-semibold text-white">Instale o InstaTrack no iPhone</p>
             </div>
             <ol className="space-y-2 text-xs text-gray-300">
               <li className="flex items-center gap-2">

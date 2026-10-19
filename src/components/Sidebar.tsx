@@ -2,6 +2,7 @@ import React from 'react';
 import { 
   LayoutDashboard, 
   FileText, 
+  ArrowLeftRight,
   ChevronLeft, 
   ChevronRight, 
   X, 
@@ -28,8 +29,8 @@ const InstagramIcon: React.FC<{ className?: string }> = ({ className }) => (
 );
 
 interface SidebarProps {
-  activeTab: 'overview' | 'report';
-  onSelectTab: (tab: 'overview' | 'report') => void;
+  activeTab: 'overview' | 'comparison' | 'report';
+  onSelectTab: (tab: 'overview' | 'comparison' | 'report') => void;
   darkMode: boolean;
   setDarkMode: (val: boolean) => void;
   collapsed: boolean;
@@ -63,6 +64,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
       description: 'Dashboard interativo e KPIs'
     },
     {
+      id: 'comparison' as const,
+      label: 'Comparação',
+      badge: 'Mensal',
+      icon: ArrowLeftRight,
+      description: 'Comparativo entre meses'
+    },
+    {
       id: 'report' as const,
       label: 'Gerar Relatório',
       badge: 'PDF / XLS',
@@ -71,7 +79,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     }
   ];
 
-  const handleItemClick = (id: 'overview' | 'report') => {
+  const handleItemClick = (id: 'overview' | 'comparison' | 'report') => {
     onSelectTab(id);
     onCloseMobile();
   };
@@ -117,7 +125,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             {/* Instagram Logo: resized to exactly 30px, centered and framed */}
             <div 
               className="w-[30px] h-[30px] rounded-lg bg-gradient-to-tr from-[#F58529] via-[#DD2A7B] to-[#8134AF] flex items-center justify-center shrink-0 shadow-sm"
-              title="InstaAnalytics"
+              title="InstaTrack"
             >
               <InstagramIcon className="w-4 h-4 text-white" />
             </div>
@@ -126,7 +134,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             {!isCompact && (
               <div className="flex flex-col truncate">
                 <span className="font-bold text-sm tracking-tight truncate flex items-center gap-1.5">
-                  InstaAnalytics
+                  InstaTrack
                   <span className="px-1.5 py-0.5 text-[8px] rounded font-semibold bg-[#DD2A7B]/15 text-[#DD2A7B]">PRO</span>
                 </span>
                 <span className={cn("text-[10px] truncate", darkMode ? "text-gray-400" : "text-gray-500")}>

@@ -23,74 +23,118 @@ export interface ParsedData {
 
 const parseNumber = (val: string): number => {
   if (!val) return 0;
-  let cleaned = String(val).replace(/\./g, '').replace('%', '').replace(',', '.');
+  let cleaned = String(val).replace(/\./g, '').replace('%', '').replace(',', '.').trim();
   return parseFloat(cleaned) || 0;
 };
 
-const parseDate = (val: string): Date => {
-  const parts = val.split('/');
-  if (parts.length !== 3) return new Date();
-  return new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
+export const parseDate = (val: string): Date | null => {
+  if (!val || typeof val !== 'string') return null;
+  const trimmed = val.trim();
+  if (!trimmed) return null;
+
+  // Check ISO format YYYY-MM-DD
+  if (/^\d{4}-\d{2}-\d{2}/.test(trimmed)) {
+    const parts = trimmed.split(/[-T ]/);
+    const year = parseInt(parts[0], 10);
+    const month = parseInt(parts[1], 10) - 1;
+    const day = parseInt(parts[2], 10);
+    const d = new Date(year, month, day);
+    return isNaN(d.getTime()) ? null : d;
+  }
+
+  // DD/MM/YYYY or DD/MM/YY
+  const parts = trimmed.split('/');
+  if (parts.length === 3) {
+    const day = parseInt(parts[0], 10);
+    const month = parseInt(parts[1], 10) - 1;
+    let year = parseInt(parts[2], 10);
+    if (year < 100) {
+      year = year < 50 ? 2000 + year : 1900 + year;
+    }
+    const d = new Date(year, month, day);
+    return isNaN(d.getTime()) ? null : d;
+  }
+
+  // Fallback
+  const ts = Date.parse(trimmed);
+  if (!isNaN(ts)) {
+    return new Date(ts);
+  }
+  return null;
 };
 
 export const parseCSVData = (csvText: string): ParsedData => {
-  const result = Papa.parse<string[]>(csvText, { header: false, skipEmptyLines: true });
-  const rawRows: string[][] = result.data;
-  const rows = rawRows.slice(1); // skip header
+  const result = Papa.parse<string[]>(csvText, { header: false, skipEmptyLines: 'greedy' });
+  const rawRows: string[][] = result.data || [];
+  if (rawRows.length < 2) {
+    return { posts: [], seguidores: 0, seguindo: 0 };
+  }
   
   let seguidores = 0;
   let seguindo = 0;
 
-  // Cell L3 is row index 2 in rawRows (0-indexed: 0=Header, 1=Row2, 2=Row3)
-  if (rawRows.length > 2 && rawRows[2]) {
-    seguidores = parseNumber(rawRows[2][11] || '0');
-    seguindo = parseNumber(rawRows[2][12] || '0');
-  }
-  
-  // Fallback if cell L3/M3 is empty
-  if (!seguidores && rawRows.length > 1) {
-    for (let i = 1; i < rawRows.length; i++) {
-      const val = parseNumber(rawRows[i][11] || '');
-      if (val > 0) {
-        seguidores = val;
-        break;
-      }
+  // Scan for seguidores and seguindo in columns 11 and 12
+  for (let i = 1; i < rawRows.length; i++) {
+    const row = rawRows[i];
+    if (!row) continue;
+    if (!seguidores && row[11]) {
+      const val = parseNumber(row[11]);
+      if (val > 0) seguidores = val;
     }
+    if (!seguindo && row[12]) {
+      const val = parseNumber(row[12]);
+      if (val > 0) seguindo = val;
+    }
+    if (seguidores > 0 && seguindo > 0) break;
   }
 
-  if (!seguindo && rawRows.length > 1) {
-    for (let i = 1; i < rawRows.length; i++) {
-      const val = parseNumber(rawRows[i][12] || '');
-      if (val > 0) {
-        seguindo = val;
-        break;
-      }
-    }
-  }
+  const posts: InstagramPost[] = [];
+  const rows = rawRows.slice(1); // skip header
 
-  const posts = rows.map((row: any) => ({
-    data: parseDate(row[0]), // A
-    post: row[1], // B
-    legenda: row[2], // C
-    likes: parseNumber(row[3]), // D
-    comentarios: parseNumber(row[4]), // E
-    engajamentoTotal: parseNumber(row[5]), // F
-    alcance: parseNumber(row[6]), // G
-    compartilhamento: parseNumber(row[7]), // H
-    engajamentoMedio: parseNumber(row[8]), // I
-    tipoPost: row[9] || '', // J
-    realEngajamento: parseNumber(row[10]), // K
-    engajamentoNum: parseNumber(row[10]),
-  }));
+  for (const row of rows) {
+    if (!row || row.length === 0) continue;
+
+    const dateStr = (row[0] || '').trim();
+    const postUrl = (row[1] || '').trim();
+    const legenda = (row[2] || '').trim();
+
+    // Skip empty lines or rows that only contain follower counts (e.g. Row 1 in sheet)
+    if (!dateStr && !postUrl && !legenda) {
+      continue;
+    }
+
+    const parsedDate = parseDate(dateStr);
+    // If there is no valid date AND no post URL, this is not a publication row
+    if (!parsedDate && !postUrl) {
+      continue;
+    }
+
+    const finalDate = parsedDate || new Date();
+
+    posts.push({
+      data: finalDate,
+      post: postUrl,
+      legenda,
+      likes: parseNumber(row[3]),
+      comentarios: parseNumber(row[4]),
+      engajamentoTotal: parseNumber(row[5]),
+      alcance: parseNumber(row[6]),
+      compartilhamento: parseNumber(row[7]),
+      engajamentoMedio: parseNumber(row[8]),
+      tipoPost: (row[9] || '').trim(),
+      realEngajamento: parseNumber(row[10]),
+      engajamentoNum: parseNumber(row[10]),
+    });
+  }
 
   return { posts, seguidores, seguindo };
 };
 
 export const getPostType = (post: InstagramPost): 'video' | 'carrossel' | 'card_unico' => {
   const tipo = String(post.tipoPost || '').toUpperCase().trim();
-  if (tipo.includes('VIDEO')) return 'video';
-  if (tipo.includes('CARROSEL') || tipo.includes('ALBUM')) return 'carrossel';
-  if (tipo.includes('IMAGE') || tipo.includes('FOTO') || tipo.includes('CARD') || tipo.includes('IMG')) return 'card_unico';
+  if (tipo.includes('VIDEO') || tipo.includes('REEL')) return 'video';
+  if (tipo.includes('CARROSEL') || tipo.includes('CAROUSEL') || tipo.includes('ALBUM') || tipo.includes('SIDE')) return 'carrossel';
+  if (tipo.includes('IMAGE') || tipo.includes('FOTO') || tipo.includes('CARD') || tipo.includes('IMG') || tipo.includes('STATIC')) return 'card_unico';
   
   if (post.post && (post.post.includes('/reel/') || post.post.includes('/reels/'))) {
     return 'video';
